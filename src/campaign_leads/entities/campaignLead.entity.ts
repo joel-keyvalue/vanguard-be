@@ -17,6 +17,24 @@ export class CampaignLead extends BaseEntity {
   @Column({ nullable: true })
   jobTitle: string;
 
+  @Column({ nullable: true })
+  location: string;
+
+  @Column({ nullable: true })
+  score: string;
+
+  @Column({ nullable: true })
+  linkedIn: string;
+
+  @Column({ nullable: true })
+  company_website: string;
+
+  @Column({ nullable: true })
+  industry: string;
+
+  @Column({ nullable: true })
+  phone: string;
+
   @Column('uuid', { nullable: true })
   campaignId: string;
 
@@ -24,6 +42,6 @@ export class CampaignLead extends BaseEntity {
   @JoinColumn({ referencedColumnName: 'id', name: 'campaign_id' })
   campaign: Campaign;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, default: CampaignLeadStatus.COLD })
   status: CampaignLeadStatus;
 }

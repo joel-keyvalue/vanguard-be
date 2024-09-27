@@ -11,7 +11,7 @@ export const typeormConfig: DataSourceOptions = {
   database: 'projectdb',
   schema: 'public',
   entities: ['dist/**/*.entity.{ts,js}'],
-  migrations: ['migrations/*{.ts}'],
+  migrations: ['dist/migrations/*{.ts,js}'],
   synchronize: false,
   logging: true,
   namingStrategy: new SnakeNamingStrategy(),

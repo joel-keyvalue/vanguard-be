@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, DeepPartial, Repository } from 'typeorm';
 import Pagination from '../../common/utils/pagination';
 import { Campaign } from '../entities/campaign.entity';
 import { CampaignLead } from '../entities/campaignLead.entity';
@@ -15,7 +15,7 @@ export class CampaignRepository {
     this.leadRepository = dataSource.getRepository(CampaignLead);
   }
 
-  createCampaignEntity(campaign: Partial<Campaign>) {
+  createCampaignEntity(campaign: DeepPartial<Campaign>) {
     return this.campaignRepository.create(campaign);
   }
 
