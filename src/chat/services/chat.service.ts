@@ -38,6 +38,14 @@ export class ChatService {
     return this.chatRepository.findAllChatsInThread(threadId);
   }
 
+  async createChatThread(body: Partial<ChatThread>): Promise<ChatThread> {
+    return this.chatRepository.createChatThread(body);
+  }
+
+  async createChat(body: Partial<Chat>): Promise<Chat> {
+    return this.chatRepository.createChat(body);
+  }
+
   //   async updateChat(id: string, updates: Partial<Chat>): Promise<Chat> {
   //     return this.chatRepository.updateChat(id, updates);
   //   }

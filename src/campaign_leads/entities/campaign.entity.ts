@@ -1,4 +1,4 @@
-import { Column, Entity, OneToMany } from 'typeorm';
+import { Column, Entity, OneToMany, Timestamp } from 'typeorm';
 import { BaseEntity } from '../../common/classes/baseEntity';
 import { CampaignLead } from './campaignLead.entity';
 
@@ -6,6 +6,12 @@ import { CampaignLead } from './campaignLead.entity';
 export class Campaign extends BaseEntity {
   @Column()
   name: string;
+
+  @Column({ type: 'timestamp' })
+  scheduleTime: Date;
+  
+  @Column()
+  status: string;  
 
   @OneToMany(() => CampaignLead, (campaignLead) => campaignLead.campaign, {
     cascade: ['insert'],

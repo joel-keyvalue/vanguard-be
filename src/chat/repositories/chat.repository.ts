@@ -23,6 +23,10 @@ export class ChatRepository {
     return this.chatThreadRepository.save(chatThread);
   }
 
+  async createChat(chat: Partial<Chat>): Promise<Chat> {
+    return this.chatRepository.save(chat);
+  }
+
   async findOneChatThread(id: string): Promise<ChatThread> {
     return this.chatThreadRepository.findOne({ where: { id } });
   }

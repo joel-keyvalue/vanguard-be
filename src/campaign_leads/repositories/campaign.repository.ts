@@ -46,12 +46,26 @@ export class CampaignRepository {
     return new Pagination<Campaign>(campaigns, page, pageSize, total);
   }
 
+  async findCampaign(scheduleTime: Date): Promise<Campaign[]> {
+    const qb = this.campaignRepository.createQueryBuilder('campaign');
+    qb.orderBy(`campaign.schedule_time`, 'ASC');
+    qb.where('campaign.schedule_time <= :scheduleTime and campaign.status = :status', { scheduleTime, status: 'scheduled' });
+    return await qb.getMany();
+  }
+
   async update(id: string, updates: Partial<Campaign>): Promise<Campaign> {
     return this.campaignRepository.save({ id, ...updates });
   }
 
   async findOneCampaignLead(id: string): Promise<CampaignLead> {
     return this.leadRepository.findOne({ where: { id } });
+  }
+
+  async findAllLeads(campaignId: String): Promise<CampaignLead[]> {
+    const qb = this.leadRepository.createQueryBuilder('campaignLead');
+    qb.orderBy(`campaignLead.createdAt`, 'DESC');
+    qb.where('campaignLead.campaignId = :campaignId', { campaignId });
+    return await qb.getMany();
   }
 
   async findAllCampaignLeads(): Promise<Pagination<CampaignLead>> {
