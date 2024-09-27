@@ -1,7 +1,8 @@
-import { DataSource } from 'typeorm';
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { DataSource, DataSourceOptions } from 'typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 
-export const AppDataSource = new DataSource({
+export const typeormConfig: DataSourceOptions = {
   type: 'postgres',
   host: 'localhost',
   port: 5432,
@@ -9,9 +10,16 @@ export const AppDataSource = new DataSource({
   password: 'password',
   database: 'projectdb',
   schema: 'public',
-  entities: ['src/**/*.entity{.ts,.js}'],
-  migrations: ['migrations/*{.ts,.js}'],
+  entities: ['dist/**/*.entity.{ts,js}'],
+  migrations: ['migrations/*{.ts}'],
   synchronize: false,
   logging: true,
   namingStrategy: new SnakeNamingStrategy(),
+};
+
+export const AppDataSource = new DataSource({ ...typeormConfig });
+
+export const typeormConfigFactory = (): TypeOrmModuleOptions => ({
+  ...typeormConfig,
+  logging: ['query', 'error'],
 });
