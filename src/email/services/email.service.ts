@@ -99,6 +99,17 @@ export class EmailService {
     });
   }
 
+  async storeScheduleEntry(lead: any, treadId: any): Promise<any> {
+    return this.chatService.createChat({
+      message: `Schedule a Meeting for 30 minutes with ${lead.name} on 2024-09-28 at 2:30 PM`, 
+      metaData: {},
+      messageType: "meeting_scheduled",
+      senderName: "Sales Genie",
+      senderType: "chatbot",
+      threadId: treadId,  
+    });
+  }
+
   async readEmails(emailId: string): Promise<any> {
     const email = await this.emailRepository.findOneEmail(emailId);
 
@@ -119,12 +130,41 @@ export class EmailService {
         decodedBody = decodedBody.substring(0, replySeparator).trim();
       }
 
-      this.campaignService.requestAction(decodedBody);
-      console.log(decodedBody);
-    } else {
-      this.campaignService.sendFollowUpEmail(email.id);
-    }
-  
+      const action = await this.campaignService.requestAction(decodedBody);
+      if(action == 'SCHEDULE_A_MEETING') {
+        const calendar = google.calendar({ version: 'v3', auth: this.oAuth2Client });
+        const emailAddresses = [lead.email];
+        const event = {
+          summary: 'Product Demo',
+          start: {
+            dateTime: '2024-09-28T09:00:00Z',
+            timeZone: 'America/Los_Angeles'
+          },
+          end: {
+            dateTime: '2024-09-28T09:30:00Z',
+            timeZone: 'America/Los_Angeles'
+          },
+          attendees: emailAddresses.map(email => ({ email })),
+          conferenceData: {
+            createRequest: {
+              requestId: messageId,
+              conferenceSolutionKey: {
+                type: 'hangoutsMeet'
+              }
+            }
+          }
+        };
+
+        calendar.events.insert({
+          calendarId: 'primary',
+          requestBody: event,
+          conferenceDataVersion: 1,
+          sendUpdates: 'all' 
+        });
+        
+        return this.storeScheduleEntry(lead, thread.id);
+      }
+    } 
     return;
   }
 
