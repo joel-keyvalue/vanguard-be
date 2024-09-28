@@ -17,7 +17,18 @@ export class EmailController {
     @Next() next: NextFunction
   ) {
     try {
-      return this.emailService.storeChatEntry(id)
+      this.emailService.storeChatEntry(id)
+
+      setTimeout(async () => {
+        try {
+          return await this.emailService.readEmails(id);
+          } catch (error) {
+          console.error('Error checking for mail from user', error);
+        }
+      }, 60000); // 60000 milliseconds = 1 minute
+
+      // Send an immediate response
+      res.status(200).send('Tracker received');
     } catch (error) {
       next(error);
     }

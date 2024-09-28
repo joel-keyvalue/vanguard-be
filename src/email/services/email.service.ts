@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ChatService } from 'chat/services/chat.service';
 import { CampaignService } from 'campaign_leads/services/campaign.service';
+import * as dotenv from 'dotenv';
 
 @Injectable()
 export class EmailService {
@@ -14,15 +15,16 @@ export class EmailService {
     private readonly chatService: ChatService,
     private readonly campaignService: CampaignService
   ) {
-    // const credentials = JSON.parse(
-    //   fs.readFileSync('src/credentials.json', 'utf8')
-    // );
+    const credentials = JSON.parse(
+      fs.readFileSync('src/credentials.json', 'utf8')
+    );
 
-    // const { client_id, client_secret, redirect_uris } = credentials.web;
-    // this.oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+    const { client_id, client_secret, redirect_uris } = credentials.web;
+    this.oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
 
-    //   const token = {};
-    //   this.oAuth2Client.setCredentials(token);
+    const token = JSON.parse(process.env.GOOGLE_TOKEN);
+    console.log(token);
+    this.oAuth2Client.setCredentials(token);
   }
 
   async checkAvailability(emailAddresses: string[], timeMin: string, timeMax: string): Promise<any> {
@@ -89,35 +91,44 @@ export class EmailService {
     });
   }
 
-  async readEmails(): Promise<any[]> {
+  sendFollowUpEmail(id: string) {
+    return this.campaignService.sendFollowUpEmail(id);
+  }
+
+  async readEmails(threadId: string): Promise<any> {
+    const thread = await this.chatService.findOneChatThread(threadId);
+    const lead = await this.campaignService.findOneCampaignLead(thread.subjectId);
+
     const gmail = google.gmail({ version: 'v1', auth: this.oAuth2Client });
-    const res = await gmail.users.threads.list({ userId: 'me', maxResults: 1 });
-    const threads = res.data.threads || [];
+    const messages = await gmail.users.messages.list({ userId: 'me', q: `from:${lead.email}`, maxResults: 1 });
+    if (messages.data.messages) {
+      
+    } else {
+      this.campaignService.sendFollowUpEmail(threadId);
+    }
+  
+    return;
 
-    const messages = await Promise.all(threads.map(async (thread) => {
-      const threadDetails = await gmail.users.threads.get({ userId: 'me', id: thread.id });
-      const threadMessages = threadDetails.data.messages || [];
+    //   return threadMessages.map(message => {
+    //     const parts = message.payload?.parts || [];
+    //     const body = parts.length ? parts[0].body?.data : message.payload?.body?.data;
+    //     const decodedBody = body ? Buffer.from(body, 'base64').toString('utf-8') : 'No Content';
 
-      return threadMessages.map(message => {
-        const parts = message.payload?.parts || [];
-        const body = parts.length ? parts[0].body?.data : message.payload?.body?.data;
-        const decodedBody = body ? Buffer.from(body, 'base64').toString('utf-8') : 'No Content';
+    //     const headers = message.payload?.headers || [];
+    //     const fromHeader = headers.find(header => header.name === 'From');
+    //     const fromAddress = fromHeader ? fromHeader.value : 'No From Address';
+    //     const subjectHeader = headers.find(header => header.name === 'Subject');
 
-        const headers = message.payload?.headers || [];
-        const fromHeader = headers.find(header => header.name === 'From');
-        const fromAddress = fromHeader ? fromHeader.value : 'No From Address';
-        const subjectHeader = headers.find(header => header.name === 'Subject');
+    //     return {
+    //       id: message.id,
+    //       threadId: message.threadId,
+    //       snippet: message.snippet,
+    //       body: decodedBody,
+    //       from: fromAddress
+    //     };
+    //   });
+    // }));
 
-        return {
-          id: message.id,
-          threadId: message.threadId,
-          snippet: message.snippet,
-          body: decodedBody,
-          from: fromAddress
-        };
-      });
-    }));
-
-    return messages.flat();
+    // return messages.flat();
   }
 }

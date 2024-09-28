@@ -108,6 +108,40 @@ export class CampaignService {
     }
   }
 
+  async sendFollowUpEmail(threadId: string): Promise<any> {
+    const thread = await this.chatService.findOneChatThread(threadId);
+    const lead = await this.findOneCampaignLead(thread.subjectId);
+    
+    const data = {
+      workflowName: 'FollowUp',
+      data: {},
+      notify: {
+        variables: {
+          name: lead.name
+        },
+        email: lead.email,
+      },
+    };
+
+    // Make the API call to send the email
+    try {
+      const response = await lastValueFrom(
+        this.httpService.post('https://api.trysiren.io/api/v2/workflows/trigger', data, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer 9ce050d7ef384aaea9af679e340025b1',
+          },
+        }),
+      );
+
+      // Store the response as a chat entry
+      await this.storeFollowupChatEntry(thread.id, response.data);
+    } catch (error) {
+      console.error('Error sending email to lead', lead.email, error);
+    }
+  
+  }
+
   private async createThreadForLead(lead: any): Promise<any> {
     return this.chatService.createChatThread({subjectType: "campaign_lead", subjectId: lead.id});
   }
@@ -117,6 +151,20 @@ export class CampaignService {
       message: "Email sent", 
       metaData: {
         header: "Introduction to Our AI-Powered Solutions",
+        button: "View Email",
+      },
+      messageType: "email_sent",
+      senderName: "Sales Genie",
+      senderType: "chatbot",
+      threadId: threadId,  
+    });
+  }
+
+  private async storeFollowupChatEntry(threadId: string, data: any): Promise<any> {
+    return this.chatService.createChat({
+      message: "Hey! Look like @::name:: has opened the email but not responded. Follow up email sent.", 
+      metaData: {
+        header: "Checking in on Our AI Solutions – Let’s Connect",
         button: "View Email",
       },
       messageType: "email_sent",
