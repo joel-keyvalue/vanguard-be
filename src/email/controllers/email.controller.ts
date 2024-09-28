@@ -7,6 +7,23 @@ import { NextFunction, Response } from "express";
 export class EmailController {
   constructor(private readonly emailService: EmailService) {}
 
+  @Get(':id')
+  async getEmail(
+    @Param('id') id: string,
+    @Res() res: Response,
+    @Next() next: NextFunction
+  ) {
+    try {
+      const email = await this.emailService.findOneEmail(id);
+      if (!email) {
+        return res.status(404).send('Email not found');
+      }
+      return res.status(200).json(email);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   @Get('open/:id')
   async getTracker(
     @Param('id') id: string,
@@ -22,7 +39,7 @@ export class EmailController {
           } catch (error) {
           console.error('Error checking for mail from user', error);
         }
-      }, 60000); // 60000 milliseconds = 1 minute
+      }, 10000); // 60000 milliseconds = 1 minute
 
       // Send an immediate response
       res.status(200).send('Tracker received');

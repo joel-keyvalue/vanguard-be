@@ -11,6 +11,7 @@ import { lastValueFrom } from 'rxjs';
 import { EmailService } from 'email/services/email.service';
 import { replaceTemplate } from 'email/utils';
 import { Templates } from 'email/constants/templates';
+import e from 'express';
 
 @Injectable()
 export class CampaignService {
@@ -108,7 +109,7 @@ export class CampaignService {
 
           // Store the response as a chat entry
   
-          await this.storeChatEntry(thread.id, response.data);
+          await this.storeChatEntry(thread.id, email.id, response.data);
         } catch (error) {
           console.error('Error sending email to lead', lead.email, error);
         }
@@ -119,8 +120,12 @@ export class CampaignService {
     }
   }
 
-  async sendFollowUpEmail(threadId: string): Promise<any> {
-    const thread = await this.chatService.findOneChatThread(threadId);
+  async sendFollowUpEmail(messageId: string): Promise<any> {
+    const message = await this.emailService.findOneEmail(messageId);
+    if (message.type !== 'initial') {
+      return;
+    }
+    const thread = await this.chatService.findOneChatThread(message.threadId);
     const lead = await this.findOneCampaignLead(thread.subjectId);
     const email = await this.emailService.createEmail({
       message: replaceTemplate(Templates.FOLLOW_UP, {
@@ -156,23 +161,47 @@ export class CampaignService {
       );
 
       // Store the response as a chat entry
-      await this.storeFollowupChatEntry(thread.id, response.data);
+      await this.storeFollowupChatEntry(thread.id, email.id, response.data);
     } catch (error) {
       console.error('Error sending email to lead', lead.email, error);
     }
   
   }
 
+  async requestAction(mail: string): Promise<any> {
+    const data = {
+      content: mail,
+    };
+
+    // Make the API call to send the email
+    try {
+      const response = await lastValueFrom(
+        this.httpService.post('http://192.168.4.87:8000/email/action', data, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer 9ce050d7ef384aaea9af679e340025b1',
+          },
+        }),
+      );
+
+      console.log(response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error requesting action', mail);
+    }
+  }
+
   private async createThreadForLead(lead: any): Promise<any> {
     return this.chatService.createChatThread({subjectType: "campaign_lead", subjectId: lead.id});
   }
 
-  private async storeChatEntry(threadId: string, data: any): Promise<any> {
+  private async storeChatEntry(threadId: string, emailid: String, data: any): Promise<any> {
     return this.chatService.createChat({
       message: "Email sent", 
       metaData: {
         header: "Introduction to Our AI-Powered Solutions",
         button: "View Email",
+        emailid: emailid,
       },
       messageType: "email_sent",
       senderName: "Sales Genie",
@@ -181,12 +210,15 @@ export class CampaignService {
     });
   }
 
-  private async storeFollowupChatEntry(threadId: string, data: any): Promise<any> {
+  private async storeFollowupChatEntry(threadId: string, emailId: string, data: any): Promise<any> {
+    const thread = await this.chatService.findOneChatThread(threadId);
+    const lead = await this.findOneCampaignLead(thread.subjectId);
     return this.chatService.createChat({
-      message: "Hey! Look like @::name:: has opened the email but not responded. Follow up email sent.", 
+      message: `Hey! Look like @${lead.name} has opened the email but not responded. Follow up email sent.`, 
       metaData: {
-        header: "Checking in on Our AI Solutions – Let’s Connect",
+        header: "Introduction to Our AI-Powered Solutions",
         button: "View Email",
+        emailid: emailId,
       },
       messageType: "email_sent",
       senderName: "Sales Genie",

@@ -83,6 +83,9 @@ export class EmailService {
 
   async storeChatEntry(emailId: string): Promise<any> {
     const email = await this.emailRepository.findOneEmail(emailId);
+    if (!email || !email.threadId) {
+      return;
+    }
     const thread = await this.chatService.findOneChatThread(email.threadId);
     const lead = await this.campaignService.findOneCampaignLead(thread.subjectId); 
     await this.emailRepository.update(emailId, { status: 'read' });
@@ -96,10 +99,6 @@ export class EmailService {
     });
   }
 
-  sendFollowUpEmail(id: string) {
-    return this.campaignService.sendFollowUpEmail(id);
-  }
-
   async readEmails(emailId: string): Promise<any> {
     const email = await this.emailRepository.findOneEmail(emailId);
 
@@ -109,34 +108,24 @@ export class EmailService {
     const gmail = google.gmail({ version: 'v1', auth: this.oAuth2Client });
     const messages = await gmail.users.messages.list({ userId: 'me', q: `from:${lead.email}`, maxResults: 1 });
     if (messages.data.messages) {
-      
+      const allMessages = messages.data.messages;
+      const messageId = allMessages[allMessages.length - 1].id;
+      const message = (await gmail.users.messages.get({ userId: 'me', id: messageId })).data;
+      const parts = message.payload?.parts || [];
+      const body = parts.length ? parts[0].body?.data : message.payload?.body?.data;
+      var decodedBody = body ? Buffer.from(body, 'base64').toString('utf-8') : 'No Content';
+      const replySeparator = decodedBody.indexOf('On Sat'); 
+      if (replySeparator !== -1) {
+        decodedBody = decodedBody.substring(0, replySeparator).trim();
+      }
+
+      this.campaignService.requestAction(decodedBody);
+      console.log(decodedBody);
     } else {
-      this.campaignService.sendFollowUpEmail(email.threadId);
+      this.campaignService.sendFollowUpEmail(email.id);
     }
   
     return;
-
-    //   return threadMessages.map(message => {
-    //     const parts = message.payload?.parts || [];
-    //     const body = parts.length ? parts[0].body?.data : message.payload?.body?.data;
-    //     const decodedBody = body ? Buffer.from(body, 'base64').toString('utf-8') : 'No Content';
-
-    //     const headers = message.payload?.headers || [];
-    //     const fromHeader = headers.find(header => header.name === 'From');
-    //     const fromAddress = fromHeader ? fromHeader.value : 'No From Address';
-    //     const subjectHeader = headers.find(header => header.name === 'Subject');
-
-    //     return {
-    //       id: message.id,
-    //       threadId: message.threadId,
-    //       snippet: message.snippet,
-    //       body: decodedBody,
-    //       from: fromAddress
-    //     };
-    //   });
-    // }));
-
-    // return messages.flat();
   }
 
   async createEmail(email: Partial<Email>): Promise<Email> {
