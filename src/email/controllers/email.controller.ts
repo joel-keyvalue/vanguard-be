@@ -1,14 +1,11 @@
 import { Controller, Get, Next, Param, Res } from '@nestjs/common';
 import { EmailService } from '../services/email.service';
 import { NextFunction, Response } from "express";
-import { ChatService } from 'chat/services/chat.service';
 
 
 @Controller('email')
 export class EmailController {
-  constructor(
-    private readonly emailService: EmailService
-  ) {}
+  constructor(private readonly emailService: EmailService) {}
 
   @Get('open/:id')
   async getTracker(

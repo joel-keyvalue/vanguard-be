@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import * as fs from 'fs';
@@ -6,6 +6,8 @@ import * as path from 'path';
 import { ChatService } from 'chat/services/chat.service';
 import { CampaignService } from 'campaign_leads/services/campaign.service';
 import * as dotenv from 'dotenv';
+import { Email } from 'email/entities/email.entity';
+import { EmailRepository } from 'email/repositories/email.repository';
 
 @Injectable()
 export class EmailService {
@@ -13,7 +15,9 @@ export class EmailService {
 
   constructor(
     private readonly chatService: ChatService,
-    private readonly campaignService: CampaignService
+    @Inject(forwardRef(() => CampaignService))
+    private readonly campaignService: CampaignService,
+    private readonly emailRepository: EmailRepository,
   ) {
     const credentials = JSON.parse(
       fs.readFileSync('src/credentials.json', 'utf8')
@@ -77,17 +81,18 @@ export class EmailService {
         
   }
 
-  async storeChatEntry(threadId: string): Promise<any> {
-    const thread = await this.chatService.findOneChatThread(threadId);
+  async storeChatEntry(emailId: string): Promise<any> {
+    const email = await this.emailRepository.findOneEmail(emailId);
+    const thread = await this.chatService.findOneChatThread(email.threadId);
     const lead = await this.campaignService.findOneCampaignLead(thread.subjectId); 
-    
+    await this.emailRepository.update(emailId, { status: 'read' });
     return this.chatService.createChat({
       message: "Email opened", 
       metaData: {},
       messageType: "email_opened",
       senderName: lead.name,
       senderType: "campaign_lead",
-      threadId: threadId,  
+      threadId: email.threadId,  
     });
   }
 
@@ -95,8 +100,10 @@ export class EmailService {
     return this.campaignService.sendFollowUpEmail(id);
   }
 
-  async readEmails(threadId: string): Promise<any> {
-    const thread = await this.chatService.findOneChatThread(threadId);
+  async readEmails(emailId: string): Promise<any> {
+    const email = await this.emailRepository.findOneEmail(emailId);
+
+    const thread = await this.chatService.findOneChatThread(email.threadId);
     const lead = await this.campaignService.findOneCampaignLead(thread.subjectId);
 
     const gmail = google.gmail({ version: 'v1', auth: this.oAuth2Client });
@@ -104,7 +111,7 @@ export class EmailService {
     if (messages.data.messages) {
       
     } else {
-      this.campaignService.sendFollowUpEmail(threadId);
+      this.campaignService.sendFollowUpEmail(email.threadId);
     }
   
     return;
@@ -130,5 +137,17 @@ export class EmailService {
     // }));
 
     // return messages.flat();
+  }
+
+  async createEmail(email: Partial<Email>): Promise<Email> {
+    return this.emailRepository.createEmail(email);
+  }
+
+  async findOneEmail(id: string): Promise<Email> {
+    return this.emailRepository.findOneEmail(id);
+  }
+
+  async update(id: string, updates: Partial<Email>): Promise<Email> {
+    return this.emailRepository.update(id, updates);
   }
 }

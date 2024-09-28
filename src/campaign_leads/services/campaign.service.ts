@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { CampaignRepository } from '../repositories/campaign.repository';
 import { Campaign } from '../entities/campaign.entity';
 import Pagination from '../../common/utils/pagination';
@@ -6,16 +6,20 @@ import { CampaignLead } from '../entities/campaignLead.entity';
 import { CreateCampaignDto } from 'campaign_leads/dtos/createCampaign.dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { HttpService } from '@nestjs/axios';
-import { ChatRepository } from 'chat/repositories/chat.repository';
 import { ChatService } from 'chat/services/chat.service';
 import { lastValueFrom } from 'rxjs';
+import { EmailService } from 'email/services/email.service';
+import { replaceTemplate } from 'email/utils';
+import { Templates } from 'email/constants/templates';
 
 @Injectable()
 export class CampaignService {
   constructor(
     private readonly campaignRepository: CampaignRepository,
     private readonly chatService: ChatService,
-    private readonly httpService: HttpService
+    private readonly httpService: HttpService,
+    @Inject(forwardRef(() => EmailService))
+    private readonly emailService: EmailService,
   ) {}
 
   getHello(): string {
@@ -71,6 +75,12 @@ export class CampaignService {
 
         // Create a thread for the lead
         const thread = await this.createThreadForLead(lead);
+        const email = await this.emailService.createEmail({
+          message: replaceTemplate(Templates.INITIAL, {
+            name: lead.name,
+          }),
+          threadId: thread.id,
+        });
 
         // Prepare the data for the API call
         const data = {
@@ -79,7 +89,7 @@ export class CampaignService {
           notify: {
             variables: {
               name: lead.name,
-              messageId: thread.id,
+              messageId: email.id,
             },
             email: lead.email,
           },
@@ -97,6 +107,7 @@ export class CampaignService {
           );
 
           // Store the response as a chat entry
+  
           await this.storeChatEntry(thread.id, response.data);
         } catch (error) {
           console.error('Error sending email to lead', lead.email, error);
@@ -111,13 +122,23 @@ export class CampaignService {
   async sendFollowUpEmail(threadId: string): Promise<any> {
     const thread = await this.chatService.findOneChatThread(threadId);
     const lead = await this.findOneCampaignLead(thread.subjectId);
-    
+    const email = await this.emailService.createEmail({
+      message: replaceTemplate(Templates.FOLLOW_UP, {
+        name: lead.name,
+      }),
+      type: 'followup',
+      threadId: thread.id,
+    });
+    if (email.type !== 'initial') {
+      return;
+    }
     const data = {
       workflowName: 'FollowUp',
       data: {},
       notify: {
         variables: {
-          name: lead.name
+          name: lead.name,
+          messageId: email.id,
         },
         email: lead.email,
       },
